@@ -1905,6 +1905,22 @@ describe("OPENCODE_PERMISSION env var", () => {
 })
 
 describe("OPENCODE_CONFIG_CONTENT token substitution", () => {
+  it.instance("prefers CodeMax inline config content and falls back to OpenCode", () =>
+    withProcessEnvs(
+      {
+        CODEMAX_CONFIG_CONTENT: JSON.stringify({ username: "codemax-inline-config" }),
+        OPENCODE_CONFIG_CONTENT: JSON.stringify({ username: "opencode-inline-config" }),
+      },
+      Effect.gen(function* () {
+        expect((yield* Config.use.get()).username).toBe("codemax-inline-config")
+
+        delete process.env.CODEMAX_CONFIG_CONTENT
+        const directory = yield* tmpdirScoped()
+        expect((yield* Config.use.get().pipe(provideInstanceEffect(directory))).username).toBe("opencode-inline-config")
+      }),
+    ),
+  )
+
   it.instance("substitutes {env:} tokens in OPENCODE_CONFIG_CONTENT", () =>
     withProcessEnv(
       "TEST_CONFIG_VAR",
