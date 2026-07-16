@@ -24,5 +24,6 @@ describe("Product", () => {
       directory: "CODEMAX_CONFIG_DIR",
       content: "CODEMAX_CONFIG_CONTENT",
     })
+    expect(Object.isFrozen(Product.ConfigEnvironment)).toBe(true)
   })
 })
