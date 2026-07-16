@@ -8,6 +8,7 @@ export interface Args {
   sessionID?: string
   fork?: boolean
   auto?: boolean
+  language?: "auto" | "en" | "zh-CN"
 }
 
 export const { use: useArgs, provider: ArgsProvider } = createSimpleContext({

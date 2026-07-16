@@ -105,6 +105,11 @@ export const TuiThreadCommand = cmd({
         type: "string",
         describe: "agent to use",
       })
+      .option("language", {
+        type: "string",
+        choices: ["auto", "en", "zh-CN"],
+        describe: "CodeMax interface language",
+      })
       .option("auto", {
         type: "boolean",
         describe: "auto-approve permissions that are not explicitly denied (dangerous!)",
@@ -292,6 +297,7 @@ export const TuiThreadCommand = cmd({
               prompt,
               fork: args.fork,
               auto: args.auto || args.yolo || args["dangerously-skip-permissions"],
+              language: args.language,
             },
           }),
         )
