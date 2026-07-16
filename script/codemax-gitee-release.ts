@@ -17,7 +17,7 @@ export async function mirrorRelease(input: {
   await verifyArtifacts(directory)
 
   const repository = await api(input.fetch, config, "", { method: "GET" })
-  if (repository.private !== true) throw new Error("Gitee 目标仓库必须设为私有仓库")
+  if (repository.private !== false) throw new Error("Gitee target repository must be public")
 
   const release = await findOrCreateRelease(input.fetch, config, input.tag)
   const uploaded = new Set(release.attach_files.map((file) => file.name))
@@ -135,5 +135,5 @@ if (import.meta.main) {
   const tag = process.argv[3]
   if (!directory || !tag) throw new Error("用法: bun script/codemax-gitee-release.ts <发布目录> <标签>")
   await mirrorRelease({ directory, tag, env: process.env, fetch })
-  console.log(`CodeMax 已镜像到私有 Gitee Release: ${tag}`)
+  console.log(`CodeMax mirrored to public Gitee Release: ${tag}`)
 }

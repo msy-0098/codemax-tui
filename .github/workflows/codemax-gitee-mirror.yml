@@ -1,4 +1,4 @@
-name: Mirror CodeMax release to private Gitee
+name: Mirror CodeMax release to public Gitee
 
 on:
   workflow_dispatch:
@@ -14,20 +14,20 @@ permissions:
 jobs:
   mirror:
     runs-on: ubuntu-24.04
-    environment: codemax-gitee-private-mirror
+    environment: codemax-public-release
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      - name: Download the private CodeMax release artifacts
+      - name: Download the public CodeMax release artifacts
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
           tag="${VERSION#codemax-v}"
           gh release download "codemax-v${tag}" --repo "$GITHUB_REPOSITORY" --dir release --pattern "CodeMax-*" --pattern "SHA256SUMS.txt"
-      - name: Verify and mirror to private Gitee
+      - name: Verify and mirror to public Gitee
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           GITEE_OWNER: ${{ secrets.GITEE_OWNER }}

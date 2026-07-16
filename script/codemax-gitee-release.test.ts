@@ -21,7 +21,7 @@ describe("CodeMax Gitee release mirror", () => {
       const url = new URL(request.url)
 
       if (request.method === "GET" && url.pathname === "/api/v5/repos/acme/codemax") {
-        return json({ private: true })
+        return json({ private: false })
       }
       if (request.method === "GET" && url.pathname.endsWith("/releases/tags/codemax-v0.1.0")) {
         return json({ message: "Not Found" }, 404)
@@ -51,7 +51,7 @@ describe("CodeMax Gitee release mirror", () => {
     expect(requests.every((request) => request.headers.get("authorization") === "token test-token")).toBe(true)
   })
 
-  test("rejects a public repository before creating a release", async () => {
+  test("rejects a private repository before creating a release", async () => {
     const directory = await releaseDirectory()
     const requests: Request[] = []
 
@@ -62,10 +62,10 @@ describe("CodeMax Gitee release mirror", () => {
         env: { GITEE_TOKEN: "test-token", GITEE_OWNER: "acme", GITEE_REPO: "codemax" },
         fetch: async (input, init) => {
           requests.push(new Request(input, init))
-          return json({ private: false })
+          return json({ private: true })
         },
       }),
-    ).rejects.toThrow("私有仓库")
+    ).rejects.toThrow("public")
 
     expect(requests).toHaveLength(1)
   })
@@ -81,7 +81,7 @@ describe("CodeMax Gitee release mirror", () => {
       fetch: async (input, init) => {
         const request = new Request(input, init)
         const url = new URL(request.url)
-        if (request.method === "GET" && url.pathname === "/api/v5/repos/acme/codemax") return json({ private: true })
+        if (request.method === "GET" && url.pathname === "/api/v5/repos/acme/codemax") return json({ private: false })
         if (request.method === "GET" && url.pathname.endsWith("/releases/tags/codemax-v0.1.0")) {
           return json({
             id: 42,
@@ -110,7 +110,7 @@ describe("CodeMax Gitee release mirror", () => {
         directory,
         tag: "codemax-v0.1.0",
         env: { GITEE_TOKEN: "test-token", GITEE_OWNER: "acme", GITEE_REPO: "codemax" },
-        fetch: async () => json({ private: true }),
+        fetch: async () => json({ private: false }),
       }),
     ).rejects.toThrow("SHA256SUMS.txt")
   })
