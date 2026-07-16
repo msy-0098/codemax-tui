@@ -45,6 +45,7 @@ describe("ProjectV2.resolve", () => {
         Effect.promise(() => tmpdir()),
         (tmp) => Effect.promise(() => tmp[Symbol.asyncDispose]()),
       )
+      yield* Effect.promise(() => fs.writeFile(path.join(tmp.path, ".git"), "invalid"))
       const project = yield* ProjectV2.Service
 
       const result = yield* project.resolve(abs(tmp.path))

@@ -72,6 +72,7 @@ describe("Snapshot", () => {
       Effect.promise(() => tmpdir()),
       (tmp) =>
         Effect.gen(function* () {
+          yield* Effect.promise(() => fs.writeFile(path.join(tmp.path, ".git"), "invalid"))
           expect(
             yield* Effect.gen(function* () {
               const snapshot = yield* Snapshot.Service

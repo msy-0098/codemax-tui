@@ -362,6 +362,7 @@ describe("ProjectCopy", () => {
     Effect.gen(function* () {
       const input = yield* setup()
       yield* Effect.promise(() => fs.rm(path.join(input.sourceDirectory, ".git"), { recursive: true }))
+      yield* Effect.promise(() => fs.writeFile(path.join(input.sourceDirectory, ".git"), "invalid"))
       const copy = yield* ProjectCopy.Service
 
       yield* copy.refresh({ projectID: input.projectID })
