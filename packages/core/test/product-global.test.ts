@@ -33,12 +33,16 @@ async function flag() {
 }
 
 describe("CodeMax global paths", () => {
-  test("uses the product ID as the basename for user paths", async () => {
+  test("uses the product ID as the basename for user data paths", async () => {
     const { Global } = await import(`../src/global.ts?test=${crypto.randomUUID()}`)
 
-    ;[Global.Path.data, Global.Path.config, Global.Path.cache, Global.Path.state, Global.Path.tmp, Global.Path.log, Global.Path.repos].forEach(
-      (value) => expect(path.basename(value)).toBe(Product.ID),
+    ;[Global.Path.data, Global.Path.config, Global.Path.cache, Global.Path.state, Global.Path.tmp].forEach((value) =>
+      expect(path.basename(value)).toBe(Product.ID),
     )
+    expect(path.dirname(Global.Path.log)).toBe(Global.Path.data)
+    expect(path.basename(Global.Path.log)).toBe("log")
+    expect(path.dirname(Global.Path.repos)).toBe(Global.Path.data)
+    expect(path.basename(Global.Path.repos)).toBe("repos")
   })
 })
 
@@ -81,6 +85,17 @@ describe("CodeMax configuration flags", () => {
     expect(Flag.OPENCODE_CONFIG_DIR).toBe("opencode-config")
     expect(Flag.OPENCODE_CONFIG_CONTENT).toBe("opencode-content")
   })
+
+  test("evaluates the configuration directory getter at access time", async () => {
+    const Flag = await flag()
+
+    process.env[Product.ConfigEnvironment.directory] = "codemax-config"
+    process.env.OPENCODE_CONFIG_DIR = "opencode-config"
+    expect(Flag.OPENCODE_CONFIG_DIR).toBe("codemax-config")
+
+    delete process.env[Product.ConfigEnvironment.directory]
+    expect(Flag.OPENCODE_CONFIG_DIR).toBe("opencode-config")
+  })
 })
 
 describe("CodeMax auto update flag", () => {
@@ -104,5 +119,19 @@ describe("CodeMax auto update flag", () => {
     process.env.OPENCODE_DISABLE_AUTOUPDATE = "false"
 
     expect((await flag()).OPENCODE_DISABLE_AUTOUPDATE).toBe(false)
+  })
+
+  test("prefers explicit CodeMax auto update false over OpenCode true", async () => {
+    process.env.CODEMAX_DISABLE_AUTOUPDATE = "false"
+    process.env.OPENCODE_DISABLE_AUTOUPDATE = "true"
+
+    expect((await flag()).OPENCODE_DISABLE_AUTOUPDATE).toBe(false)
+  })
+
+  test("prefers explicit CodeMax auto update true over OpenCode false", async () => {
+    process.env.CODEMAX_DISABLE_AUTOUPDATE = "true"
+    process.env.OPENCODE_DISABLE_AUTOUPDATE = "false"
+
+    expect((await flag()).OPENCODE_DISABLE_AUTOUPDATE).toBe(true)
   })
 })
