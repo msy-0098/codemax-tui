@@ -297,7 +297,7 @@ export const TuiThreadCommand = cmd({
               prompt,
               fork: args.fork,
               auto: args.auto || args.yolo || args["dangerously-skip-permissions"],
-              language: args.language,
+              language: args.language as "auto" | "en" | "zh-CN" | undefined,
             },
           }),
         )
