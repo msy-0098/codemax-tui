@@ -294,6 +294,40 @@ it.instance("loads config with defaults when no files exist", () =>
   }),
 )
 
+it.effect("loads only CodeMax global and .codemax project config", () =>
+  Effect.gen(function* () {
+    const global = yield* tmpdirScoped()
+    const root = yield* tmpdirScoped()
+    const project = path.join(root, "project")
+
+    yield* writeConfigEffect(global, schemaConfig({ model: "global/codemax" }), "codemax.jsonc")
+    yield* writeConfigEffect(project, schemaConfig({ model: "project/codemax" }), "codemax.json")
+    yield* writeConfigEffect(path.join(project, ".opencode"), schemaConfig({ model: "ignored/opencode" }))
+    yield* writeConfigEffect(path.join(project, ".codemax"), schemaConfig({ model: "local/codemax" }), "codemax.jsonc")
+
+    return yield* withGlobalConfigDir(
+      global,
+      withInstanceDir(
+        project,
+        Effect.gen(function* () {
+          const config = yield* Config.use.get()
+          expect(config.model).toBe("local/codemax")
+        }),
+      ),
+    )
+  }),
+)
+
+it.instance("writes project changes to .codemax/codemax.jsonc", () =>
+  Effect.gen(function* () {
+    const test = yield* TestInstance
+    yield* Config.use.update(ConfigParse.schema(ConfigV1.Info, { model: "codemax/updated" }, "test:config"))
+
+    const file = path.join(test.directory, ".codemax", "codemax.jsonc")
+    expect(yield* FSUtil.use.readJson(file)).toMatchObject({ model: "codemax/updated" })
+  }),
+)
+
 it.instance("falls back to generic username when system user info is unavailable", () =>
   Effect.gen(function* () {
     const userInfo = spyOn(os, "userInfo").mockImplementation(() => {
