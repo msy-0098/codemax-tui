@@ -10,6 +10,8 @@ test("publishes an immediately public GitHub release and mirrors it to Gitee", a
   expect(workflow).toContain("gh api repos/$GITHUB_REPOSITORY --jq .private")
   expect(workflow).toContain('gh release create "codemax-v${tag}" release/* --title "CodeMax ${tag}" --generate-notes')
   expect(workflow).toContain('bun script/codemax-gitee-release.ts release "codemax-v${tag}"')
+  expect(workflow).toContain("Get-Command codemax -ErrorAction Stop")
+  expect(workflow).toContain("Split-Path $command.Source")
   expect(workflow).not.toContain("--draft")
   expect(workflow).not.toContain("codemax-private-release")
 })

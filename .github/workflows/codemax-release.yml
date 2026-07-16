@@ -56,10 +56,12 @@ jobs:
           & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="addtopath"
           if ($LASTEXITCODE -ne 0) { throw "CodeMax installer failed: $LASTEXITCODE" }
           $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
+          $command = Get-Command codemax -ErrorAction Stop
+          if ((Split-Path $command.Source) -ine $installDir) { throw "codemax did not resolve to the installed executable" }
           $probe = Join-Path $env:TEMP "codemax-path-probe"
           New-Item -ItemType Directory -Force -Path $probe | Out-Null
           Push-Location $probe
-          try { & codemax --version } finally { Pop-Location }
+          try { & $command.Source --version } finally { Pop-Location }
           if (-not (($env:Path -split ';') | Where-Object { $_ -eq $installDir })) { throw "CodeMax install directory is missing from user PATH" }
       - name: Write hashes after signing and packaging
         shell: pwsh
