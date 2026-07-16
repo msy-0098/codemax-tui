@@ -23,7 +23,7 @@ SolidCompression=yes
 UninstallDisplayIcon={app}\codemax.exe
 
 [Tasks]
-Name: "addtopath"; Description: "Add CodeMax to the user PATH"; Flags: unchecked
+Name: "addtopath"; Description: "Add CodeMax to the user PATH"; Flags: checked
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 
 [Files]
