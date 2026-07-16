@@ -34,4 +34,11 @@ describe("CodeMax CLI branding", () => {
     expect(build).not.toContain('name.replace(pkg.name, "bun")')
     expect(modelsDev).toContain("const USER_AGENT = Product.UserAgent")
   })
+
+  test("uses the CodeMax workspace package for web development tooling", async () => {
+    const web = await Bun.file(path.resolve(packageDir, "../web/package.json")).json()
+
+    expect(web.devDependencies.codemax).toBe("workspace:*")
+    expect(web.devDependencies.opencode).toBeUndefined()
+  })
 })
