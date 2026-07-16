@@ -20,6 +20,7 @@ import pkg from "../package.json"
 
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
+const windowsX64Flag = process.argv.includes("--windows-x64")
 const skipInstall = process.argv.includes("--skip-install")
 const sourcemapsFlag = process.argv.includes("--sourcemaps")
 const plugin = createSolidTransformPlugin()
@@ -127,7 +128,9 @@ const allTargets: {
   },
 ]
 
-const targets = singleFlag
+const targets = windowsX64Flag
+  ? allTargets.filter((item) => item.os === "win32" && item.arch === "x64")
+  : singleFlag
   ? allTargets.filter((item) => {
       if (item.os !== process.platform || item.arch !== process.arch) {
         return false
@@ -196,7 +199,16 @@ for (const item of targets) {
       target: item.target,
       outfile: `dist/${name}/bin/${Product.Command}`,
       execArgv: [`--user-agent=${Product.UserAgent}/${Script.version}`, "--use-system-ca", "--"],
-      windows: {},
+      windows:
+        item.os === "win32"
+          ? {
+              hideConsole: false,
+              icon: "./assets/codemax/codemax.ico",
+              title: Product.Name,
+              publisher: Product.Name,
+              description: "CodeMax TUI coding agent",
+            }
+          : {},
     },
     files: embeddedFileMap ? { "codemax-web-ui.gen.ts": embeddedFileMap } : {},
     entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["codemax-web-ui.gen.ts"] : [])],
