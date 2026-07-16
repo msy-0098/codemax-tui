@@ -1,4 +1,5 @@
 import { Config } from "effect"
+import { Product } from "../product"
 
 export function truthy(key: string) {
   const value = process.env[key]?.toLowerCase()
@@ -7,6 +8,7 @@ export function truthy(key: string) {
 
 const copy = process.env["OPENCODE_EXPERIMENTAL_DISABLE_COPY_ON_SELECT"]
 const fff = process.env["OPENCODE_DISABLE_FFF"]
+const autoUpdate = process.env["CODEMAX_DISABLE_AUTOUPDATE"] ?? process.env["OPENCODE_DISABLE_AUTOUPDATE"]
 
 function enabledByExperimental(key: string) {
   return process.env[key] === undefined ? truthy("OPENCODE_EXPERIMENTAL") : truthy(key)
@@ -18,9 +20,9 @@ export const Flag = {
 
   OPENCODE_AUTO_HEAP_SNAPSHOT: truthy("OPENCODE_AUTO_HEAP_SNAPSHOT"),
   OPENCODE_GIT_BASH_PATH: process.env["OPENCODE_GIT_BASH_PATH"],
-  OPENCODE_CONFIG: process.env["OPENCODE_CONFIG"],
-  OPENCODE_CONFIG_CONTENT: process.env["OPENCODE_CONFIG_CONTENT"],
-  OPENCODE_DISABLE_AUTOUPDATE: truthy("OPENCODE_DISABLE_AUTOUPDATE"),
+  OPENCODE_CONFIG: process.env[Product.ConfigEnvironment.file] ?? process.env["OPENCODE_CONFIG"],
+  OPENCODE_CONFIG_CONTENT: process.env[Product.ConfigEnvironment.content] ?? process.env["OPENCODE_CONFIG_CONTENT"],
+  OPENCODE_DISABLE_AUTOUPDATE: autoUpdate === undefined || autoUpdate.toLowerCase() === "true" || autoUpdate === "1",
   OPENCODE_ALWAYS_NOTIFY_UPDATE: truthy("OPENCODE_ALWAYS_NOTIFY_UPDATE"),
   OPENCODE_DISABLE_PRUNE: truthy("OPENCODE_DISABLE_PRUNE"),
   OPENCODE_DISABLE_TERMINAL_TITLE: truthy("OPENCODE_DISABLE_TERMINAL_TITLE"),
@@ -61,7 +63,7 @@ export const Flag = {
     return process.env["OPENCODE_TUI_CONFIG"]
   },
   get OPENCODE_CONFIG_DIR() {
-    return process.env["OPENCODE_CONFIG_DIR"]
+    return process.env[Product.ConfigEnvironment.directory] ?? process.env["OPENCODE_CONFIG_DIR"]
   },
   get OPENCODE_PURE() {
     return truthy("OPENCODE_PURE")

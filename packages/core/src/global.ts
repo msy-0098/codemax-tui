@@ -6,8 +6,9 @@ import { Context, Effect, Layer } from "effect"
 import { Flock } from "./util/flock"
 import { Flag } from "./flag/flag"
 import { makeGlobalNode } from "./effect/app-node"
+import { Product } from "./product"
 
-const app = "opencode"
+const app = Product.ID
 const data = path.join(xdgData!, app)
 const cache = path.join(xdgCache!, app)
 const config = path.join(xdgConfig!, app)
@@ -20,8 +21,8 @@ const paths = {
   },
   data,
   bin: path.join(cache, "bin"),
-  log: path.join(data, "log"),
-  repos: path.join(data, "repos"),
+  log: path.join(data, "log", app),
+  repos: path.join(data, "repos", app),
   cache,
   config,
   state,
