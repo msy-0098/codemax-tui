@@ -15,6 +15,7 @@ process.chdir(dir)
 const generated = await import("./generate.ts")
 
 import { Script } from "@opencode-ai/script"
+import { Product } from "@opencode-ai/core/product"
 import pkg from "../package.json"
 
 const singleFlag = process.argv.includes("--single")
@@ -55,61 +56,74 @@ const allTargets: {
   arch: "arm64" | "x64"
   abi?: "musl"
   avx2?: false
+  target: Bun.Build.CompileTarget
 }[] = [
   {
     os: "linux",
     arch: "arm64",
+    target: "bun-linux-arm64",
   },
   {
     os: "linux",
     arch: "x64",
+    target: "bun-linux-x64",
   },
   {
     os: "linux",
     arch: "x64",
     avx2: false,
+    target: "bun-linux-x64-baseline",
   },
   {
     os: "linux",
     arch: "arm64",
     abi: "musl",
+    target: "bun-linux-arm64-musl",
   },
   {
     os: "linux",
     arch: "x64",
     abi: "musl",
+    target: "bun-linux-x64-musl",
   },
   {
     os: "linux",
     arch: "x64",
     abi: "musl",
     avx2: false,
+    target: "bun-linux-x64-baseline-musl",
   },
   {
     os: "darwin",
     arch: "arm64",
+    target: "bun-darwin-arm64",
   },
   {
     os: "darwin",
     arch: "x64",
+    target: "bun-darwin-x64",
   },
   {
     os: "darwin",
     arch: "x64",
     avx2: false,
+    target: "bun-darwin-x64-baseline",
   },
   {
     os: "win32",
     arch: "arm64",
+    target: "bun-windows-arm64",
   },
   {
     os: "win32",
     arch: "x64",
+    target: "bun-windows-x64",
   },
   {
     os: "win32",
     arch: "x64",
     avx2: false,
+    target: "bun-windows-x64-baseline",
   },
 ]
 
@@ -179,13 +193,13 @@ for (const item of targets) {
       autoloadDotenv: false,
       autoloadTsconfig: true,
       autoloadPackageJson: true,
-      target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/opencode`,
-      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+      target: item.target,
+      outfile: `dist/${name}/bin/${Product.Command}`,
+      execArgv: [`--user-agent=${Product.UserAgent}/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
-    files: embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {},
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
+    files: embeddedFileMap ? { "codemax-web-ui.gen.ts": embeddedFileMap } : {},
+    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["codemax-web-ui.gen.ts"] : [])],
     define: {
       FFF_LIBC: JSON.stringify(item.abi === "musl" ? "musl" : "gnu"),
       OPENCODE_VERSION: `'${Script.version}'`,
@@ -200,7 +214,7 @@ for (const item of targets) {
 
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
-    const binaryPath = `dist/${name}/bin/opencode`
+    const binaryPath = `dist/${name}/bin/${Product.Command}`
     console.log(`Running smoke test: ${binaryPath} --version`)
     try {
       const versionOutput = await $`${binaryPath} --version`.text()
@@ -227,17 +241,6 @@ for (const item of targets) {
     ),
   )
   binaries[name] = Script.version
-}
-
-if (Script.release) {
-  for (const key of Object.keys(binaries)) {
-    if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
-    } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
-    }
-  }
-  await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber --repo ${process.env.GH_REPO}`
 }
 
 export { binaries }
