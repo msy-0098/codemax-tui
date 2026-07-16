@@ -1,4 +1,4 @@
-name: CodeMax private release
+name: CodeMax public release
 
 on:
   push:
@@ -28,7 +28,7 @@ jobs:
       - run: python -m pip install Pillow==12.0.0
       - run: bun install --frozen-lockfile
       - working-directory: packages/opencode
-        run: bun test test/script/brand-assets.test.ts test/script/package-windows.test.ts
+        run: bun test test/script/brand-assets.test.ts test/script/installer-windows.test.ts test/script/package-windows.test.ts
       - working-directory: packages/opencode
         run: bun typecheck
       - working-directory: packages/opencode
@@ -48,6 +48,19 @@ jobs:
           $version = "${{ inputs.version || github.ref_name }}".Replace("codemax-v", "")
           bun run script/package-windows.ts --version $version --output dist/release
           & "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=$version installer/windows/codemax.iss
+      - name: Verify installer adds codemax to the user PATH
+        shell: pwsh
+        run: |
+          $installer = "${{ github.workspace }}\packages\opencode\dist\release\CodeMax-Setup-x64.exe"
+          $installDir = Join-Path $env:LOCALAPPDATA "Programs\CodeMax"
+          & $installer /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /TASKS="addtopath"
+          if ($LASTEXITCODE -ne 0) { throw "CodeMax installer failed: $LASTEXITCODE" }
+          $env:Path = [Environment]::GetEnvironmentVariable("Path", "User") + ";" + [Environment]::GetEnvironmentVariable("Path", "Machine")
+          $probe = Join-Path $env:TEMP "codemax-path-probe"
+          New-Item -ItemType Directory -Force -Path $probe | Out-Null
+          Push-Location $probe
+          try { & codemax --version } finally { Pop-Location }
+          if (-not (($env:Path -split ';') | Where-Object { $_ -eq $installDir })) { throw "CodeMax install directory is missing from user PATH" }
       - name: Write hashes after signing and packaging
         shell: pwsh
         run: |
@@ -65,18 +78,36 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-24.04
-    environment: codemax-private-release
+    environment: codemax-public-release
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
       - uses: actions/download-artifact@v4
         with:
           name: codemax-release
           path: release
-      - name: Create private draft release
+      - name: Require a public GitHub repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/$GITHUB_REPOSITORY --jq .private)" = "false"
+      - name: Create public GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version || github.ref_name }}
         run: |
           tag="${VERSION#codemax-v}"
-          gh release create "codemax-v${tag}" release/* --draft --title "CodeMax ${tag}" --generate-notes
+          gh release create "codemax-v${tag}" release/* --title "CodeMax ${tag}" --generate-notes
+      - name: Mirror verified assets to public Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+          GITEE_REPO: ${{ secrets.GITEE_REPO }}
+          VERSION: ${{ inputs.version || github.ref_name }}
+        run: |
+          tag="${VERSION#codemax-v}"
+          bun script/codemax-gitee-release.ts release "codemax-v${tag}"
