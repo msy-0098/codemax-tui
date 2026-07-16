@@ -4,8 +4,8 @@ import { createSignal, For, Show } from "solid-js"
 import { getScrollAcceleration } from "../util/scroll"
 import { useClipboard } from "../context/clipboard"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import { redactText } from "@opencode-ai/core/error/redact"
 import { useExit } from "../context/exit"
-import { describeOS, describeTerminal } from "../util/system"
 
 export function ErrorComponent(props: { error: Error; reset: () => void; mode?: "dark" | "light" }) {
   const term = useTerminalDimensions()
@@ -40,18 +40,18 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         success: "#7fd88f",
       }
 
-  const message = props.error.message || "An unknown error occurred."
-  const stack = props.error.stack || "No stack trace available."
-  const issueURL = buildIssueURL(message, stack)
+  const message = redactText(props.error.message || "发生未知错误。")
+  const stack = redactText(props.error.stack || "没有可用的堆栈信息。")
+  const report = [`CodeMax ${InstallationVersion}`, `错误: ${message}`, "", stack].join("\n")
 
   const copyReport = () => {
-    void clipboard.write?.(issueURL.toString()).then(() => setCopied(true))
+    void clipboard.write?.(report).then(() => setCopied(true))
   }
 
   const actions = [
-    { key: "c", label: () => (copied() ? "✓ Copied" : "Copy report"), copy: true, onUse: copyReport },
-    { key: "r", label: () => "Restart", onUse: props.reset },
-    { key: "q", label: () => "Quit", onUse: () => exit() },
+    { key: "c", label: () => (copied() ? "已复制" : "复制诊断信息"), copy: true, onUse: copyReport },
+    { key: "r", label: () => "重新启动", onUse: props.reset },
+    { key: "q", label: () => "退出", onUse: () => exit() },
   ]
   const [selected, setSelected] = createSignal(0)
   const move = (delta: number) => setSelected((prev) => (prev + delta + actions.length) % actions.length)
@@ -108,10 +108,10 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         {/* Headline */}
         <box flexDirection="column" alignItems="center" flexShrink={0}>
           <text attributes={TextAttributes.BOLD} fg={colors.text}>
-            opencode crashed
+            CodeMax 发生意外错误
           </text>
           <Show when={showSubtext()}>
-            <text fg={colors.muted}>An unexpected error stopped the session.</text>
+            <text fg={colors.muted}>当前会话已停止，诊断信息已脱敏。</text>
           </Show>
         </box>
 
@@ -121,7 +121,7 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
           border
           borderStyle="rounded"
           borderColor={colors.error}
-          title=" Error "
+          title=" 错误 "
           titleColor={colors.error}
           paddingLeft={2}
           paddingRight={2}
@@ -168,9 +168,9 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
           border
           borderStyle="rounded"
           borderColor={colors.borderSubtle}
-          title=" Stack trace "
+          title=" 诊断详情 "
           titleColor={colors.muted}
-          bottomTitle=" ↑↓ scroll "
+          bottomTitle=" ↑↓ 滚动 "
           bottomTitleAlignment="right"
           paddingLeft={1}
           paddingRight={1}
@@ -188,53 +188,12 @@ export function ErrorComponent(props: { error: Error; reset: () => void; mode?: 
         <Show when={showFooter()}>
           <box flexDirection="column" alignItems="center" flexShrink={0}>
             <text fg={colors.muted}>
-              {copied()
-                ? "Report copied — paste it into a new GitHub issue."
-                : "Copy the report and open a GitHub issue to help us fix this."}
+              {copied() ? "诊断信息已复制。" : "复制诊断信息后可安全地附加到支持请求。"}
             </text>
-            <text fg={colors.muted}>opencode {InstallationVersion}</text>
+            <text fg={colors.muted}>CodeMax {InstallationVersion}</text>
           </box>
         </Show>
       </box>
     </box>
   )
-}
-
-function buildIssueURL(message: string, stack: string) {
-  // Field keys match the ids in .github/ISSUE_TEMPLATE/bug-report.yml so the issue
-  // form opens pre-filled. Populating os/terminal/reproduce keeps the report past
-  // the contributing-guidelines compliance check, which pushes for system info.
-  const url = new URL("https://github.com/anomalyco/opencode/issues/new?template=bug-report.yml")
-  url.searchParams.set("title", `TUI crash: ${message}`)
-  url.searchParams.set("opencode-version", InstallationVersion)
-  url.searchParams.set("os", describeOS())
-  url.searchParams.set("terminal", describeTerminal())
-  url.searchParams.set(
-    "reproduce",
-    "Reported automatically from the opencode crash screen. If you can, describe what you were doing when it crashed.",
-  )
-
-  // Budget the stack against the fully URL-encoded length (not the raw length) so
-  // the final link stays under GitHub's practical limit; flag truncation so a
-  // clipped trace is obvious. searchParams.set handles encoding without throwing,
-  // so measuring url.toString() is both correct and safe on any input.
-  const MAX_URL_LENGTH = 6000
-  const marker = "\n... (truncated)"
-  const head = `The opencode TUI crashed with an unexpected error.\n\n**Error:** ${message}\n\n**Stack trace:**\n`
-  const setBody = (body: string) => url.searchParams.set("description", head + "```\n" + body + "\n```")
-
-  setBody(stack)
-  if (url.toString().length <= MAX_URL_LENGTH) return url
-
-  // Largest raw stack prefix whose encoded URL (with the marker) still fits.
-  let lo = 0
-  let hi = stack.length
-  while (lo < hi) {
-    const mid = Math.ceil((lo + hi) / 2)
-    setBody(stack.slice(0, mid) + marker)
-    if (url.toString().length <= MAX_URL_LENGTH) lo = mid
-    else hi = mid - 1
-  }
-  setBody(stack.slice(0, lo) + marker)
-  return url
 }
