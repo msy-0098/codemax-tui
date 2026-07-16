@@ -1,6 +1,6 @@
 import { createMemo, createSignal, onMount, Show } from "solid-js"
 import { useSync } from "../context/sync"
-import { map, pipe, sortBy } from "remeda"
+import { map, pipe } from "remeda"
 import { DialogSelect } from "../ui/dialog-select"
 import { useDialog } from "../ui/dialog"
 import { useSDK } from "../context/sdk"
@@ -15,15 +15,10 @@ import { isConsoleManagedProvider } from "../util/provider-origin"
 import { useConnected } from "./use-connected"
 import { useBindings } from "../keymap"
 import { useClipboard } from "../context/clipboard"
-
-const PROVIDER_PRIORITY: Record<string, number> = {
-  opencode: 0,
-  "opencode-go": 1,
-  openai: 2,
-  "github-copilot": 3,
-  anthropic: 4,
-  google: 5,
-}
+import { useI18n } from "../i18n"
+import { type Language } from "../i18n/locale"
+import { useLocal } from "../context/local"
+import { isPriorityProvider, sortProviders } from "../util/provider-display"
 
 const CUSTOM_PROVIDER_OPTION_VALUE = "__opencode_custom_provider__"
 const CUSTOM_PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/
@@ -44,15 +39,25 @@ type ProviderOption =
       type: "custom"
     })
 
-export function providerOptions(list: { id: string; name: string }[]): ProviderOption[] {
+export function providerOptions(
+  list: { id: string; name: string }[],
+  input: {
+    language?: Language
+    recent?: readonly string[]
+    labels?: { popular: string; all: string; other: string; custom: string }
+  } = {},
+): ProviderOption[] {
+  const language = input.language ?? "en"
+  const recent = input.recent ?? []
+  const labels = input.labels ?? {
+    popular: "Popular",
+    all: "Providers",
+    other: "Other",
+    custom: "Custom provider",
+  }
   return [
     ...pipe(
-      list,
-      sortBy(
-        (x) => PROVIDER_PRIORITY[x.id] ?? 99,
-        (x) => x.name.toLowerCase(),
-        (x) => x.id,
-      ),
+      sortProviders(list, language, recent),
       map((provider) => ({
         type: "provider" as const,
         title: provider.name,
@@ -64,15 +69,15 @@ export function providerOptions(list: { id: string; name: string }[]): ProviderO
           openai: "(ChatGPT Plus/Pro or API key)",
           "opencode-go": "Low cost subscription for everyone",
         }[provider.id],
-        category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Providers",
+        category: isPriorityProvider(provider.id, language) ? labels.popular : labels.all,
       })),
     ),
     {
       type: "custom",
-      title: "Other",
+      title: labels.other,
       value: CUSTOM_PROVIDER_OPTION_VALUE,
-      description: "Custom provider",
-      category: "Providers",
+      description: labels.custom,
+      category: labels.all,
     },
   ]
 }
@@ -90,6 +95,8 @@ export function createDialogProviderOptions() {
   const toast = useToast()
   const { theme } = useTheme()
   const onboarded = useConnected()
+  const local = useLocal()
+  const { language, t } = useI18n()
 
   async function promptCustomProviderID(): Promise<string | undefined> {
     const value = await DialogPrompt.show(dialog, "Other", {
@@ -115,7 +122,16 @@ export function createDialogProviderOptions() {
 
   const options = createMemo(() => {
     return pipe(
-      providerOptions(sync.data.provider_next.all),
+      providerOptions(sync.data.provider_next.all, {
+        language,
+        recent: Array.from(new Set(local.model.recent().map((item) => item.providerID))),
+        labels: {
+          popular: t("provider.popular"),
+          all: t("provider.all"),
+          other: t("provider.other"),
+          custom: t("provider.custom"),
+        },
+      }),
       map((provider) => {
         if (provider.type === "custom") {
           return {

@@ -26,6 +26,32 @@ describe("providerOptions", () => {
     ).toEqual(["openai", "anthropic", "aws", "mistral", "custom-z", "__opencode_custom_provider__"])
   })
 
+  test("places Chinese domestic providers first while retaining recent providers", () => {
+    expect(
+      providerOptions(
+        [
+          { id: "openai", name: "OpenAI" },
+          { id: "deepseek", name: "DeepSeek" },
+          { id: "alibaba", name: "Qwen" },
+          { id: "zhipuai", name: "Zhipu AI" },
+          { id: "moonshotai", name: "Kimi" },
+          { id: "volcengine", name: "Doubao" },
+          { id: "mistral", name: "Mistral" },
+        ],
+        { language: "zh-CN", recent: ["openai"] },
+      ).map((option) => option.value),
+    ).toEqual([
+      "openai",
+      "deepseek",
+      "alibaba",
+      "zhipuai",
+      "moonshotai",
+      "volcengine",
+      "mistral",
+      "__opencode_custom_provider__",
+    ])
+  })
+
   test("does not collide with a configured provider named other", () => {
     const values = providerOptions([{ id: "other", name: "Other Provider" }]).map((option) => option.value)
     expect(new Set(values).size).toBe(values.length)
