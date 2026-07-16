@@ -54,6 +54,7 @@ import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
+import { WorkbenchFooter, WorkbenchHeader } from "../../component/workbench"
 import { SubagentFooter } from "./subagent-footer.tsx"
 import { filetype } from "../../util/filetype"
 import parsers from "../../parsers-config"
@@ -82,6 +83,8 @@ import { getRevertDiffFiles } from "../../util/revert-diff"
 import { OPENCODE_BASE_MODE, useBindings, useCommandShortcut, useOpencodeKeymap } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
 import { LocationProvider } from "../../context/location"
+import { resolveWorkbenchContentWidth, resolveWorkbenchLayout } from "../../util/workbench-layout"
+import { useConnected } from "../../component/use-connected"
 
 addDefaultParsers(parsers.parsers)
 
@@ -246,7 +249,6 @@ export function Session() {
   })
 
   const dimensions = useTerminalDimensions()
-  const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
   const [conceal, setConceal] = createSignal(true)
   const thinking = useThinkingMode()
@@ -260,21 +262,30 @@ export function Session() {
   const [_animationsEnabled, _setAnimationsEnabled] = kv.signal("animations_enabled", true)
   const [showGenericToolOutput, setShowGenericToolOutput] = kv.signal("generic_tool_output_visibility", false)
 
-  const wide = createMemo(() => dimensions().width > 120)
+  const workbench = createMemo(() => resolveWorkbenchLayout(dimensions().width))
   const sidebarVisible = createMemo(() => {
     if (session()?.parentID) return false
-    if (sidebarOpen()) return true
-    if (sidebar() === "auto" && wide()) return true
-    return false
+    if (workbench().mode === "dual") return true
+    return workbench().mode === "single" && sidebarOpen()
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
-  const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+  const contentWidth = createMemo(() => resolveWorkbenchContentWidth(dimensions().width))
   const providers = createMemo(() => Model.index(sync.data.provider))
 
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
   const toast = useToast()
   const sdk = useSDK()
   const editor = useEditorContext()
+  const connected = useConnected()
+  const contextUsage = createMemo(() => {
+    const message = messages().findLast((item): item is AssistantMessage => item.role === "assistant")
+    if (!message) return "0%"
+    const tokens =
+      message.tokens.input + message.tokens.output + message.tokens.reasoning + message.tokens.cache.read + message.tokens.cache.write
+    const model = sync.data.provider.find((item) => item.id === message.providerID)?.models[message.modelID]
+    if (!model?.limit.context) return "-"
+    return `${Math.round((tokens / model.limit.context) * 100)}%`
+  })
 
   createEffect(() => {
     const sessionID = route.sessionID
@@ -667,12 +678,10 @@ export function Session() {
       title: sidebarVisible() ? "Hide sidebar" : "Show sidebar",
       value: "session.sidebar.toggle",
       category: "Session",
+      enabled: workbench().mode === "single",
       run: () => {
-        batch(() => {
-          const isVisible = sidebarVisible()
-          setSidebar(() => (isVisible ? "hide" : "auto"))
-          setSidebarOpen(!isVisible)
-        })
+        if (workbench().mode !== "single") return
+        setSidebarOpen((value) => !value)
         dialog.clear()
       },
     },
@@ -1164,6 +1173,12 @@ export function Session() {
       >
         <box flexDirection="row" flexGrow={1} minHeight={0}>
           <box flexGrow={1} minHeight={0} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
+            <WorkbenchHeader
+              mode={workbench().mode}
+              agent={local.agent.current()?.name ?? "Agent"}
+              model={local.model.parsed().model}
+              project={(session()?.directory ?? paths.cwd).slice(0, 32)}
+            />
             <Show when={session()}>
               <scrollbox
                 ref={(r) => (scroll = r)}
@@ -1319,14 +1334,21 @@ export function Session() {
                 </Show>
               </box>
             </Show>
+            <WorkbenchFooter
+              mode={workbench().mode}
+              language="ZH"
+              context={contextUsage()}
+              branch={sync.data.vcs?.branch ?? "-"}
+              connected={connected()}
+            />
             <Toast />
           </box>
           <Show when={sidebarVisible()}>
             <Switch>
-              <Match when={wide()}>
+              <Match when={workbench().mode === "dual"}>
                 <Sidebar sessionID={route.sessionID} />
               </Match>
-              <Match when={!wide()}>
+              <Match when={workbench().mode === "single"}>
                 <box
                   position="absolute"
                   top={0}
@@ -1336,7 +1358,7 @@ export function Session() {
                   alignItems="flex-end"
                   backgroundColor={RGBA.fromInts(0, 0, 0, 70)}
                 >
-                  <Sidebar sessionID={route.sessionID} />
+                  <Sidebar sessionID={route.sessionID} overlay />
                 </box>
               </Match>
             </Switch>

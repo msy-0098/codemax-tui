@@ -8,6 +8,7 @@ import { usePluginRuntime } from "../../plugin/runtime"
 
 import { getScrollAcceleration } from "../../util/scroll"
 import { WorkspaceLabel } from "../../component/workspace-label"
+import { WorkbenchSidebar } from "../../component/workbench"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const pluginRuntime = usePluginRuntime()
@@ -22,18 +23,24 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
     return project.workspace.get(workspaceID)
   }
   const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
+  const files = createMemo(() =>
+    (sync.data.session_diff[props.sessionID] ?? []).flatMap((item) => (item.file ? [item.file] : [])),
+  )
+  const recentSessions = createMemo(() =>
+    sync.data.session
+      .filter((item) => item.parentID === undefined && item.id !== props.sessionID)
+      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .slice(0, 5)
+      .map((item) => item.title),
+  )
 
   return (
     <Show when={session()}>
-      <box
+      <WorkbenchSidebar
+        files={files()}
+        sessions={recentSessions()}
+        overlay={props.overlay}
         backgroundColor={theme.backgroundPanel}
-        width={42}
-        height="100%"
-        paddingTop={1}
-        paddingBottom={1}
-        paddingLeft={2}
-        paddingRight={2}
-        position={props.overlay ? "absolute" : "relative"}
       >
         <scrollbox
           flexGrow={1}
@@ -97,7 +104,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
             </text>
           </pluginRuntime.Slot>
         </box>
-      </box>
+      </WorkbenchSidebar>
     </Show>
   )
 }
