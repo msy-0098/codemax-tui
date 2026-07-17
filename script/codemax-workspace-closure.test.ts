@@ -95,4 +95,16 @@ describe("CodeMax workspace closure", () => {
       expect(new TextDecoder().decode(result.stdout).trim()).toBe("")
     }
   })
+
+  test("documents CodeMax rather than upstream product downloads", async () => {
+    const readme = await Bun.file(path.join(root, "README.md")).text()
+
+    expect(readme).toContain("# CodeMax")
+    expect(readme).toContain("codemax")
+    expect(readme).toContain(".codemax")
+    expect(readme).toContain("CodeMax-Setup-x64.exe")
+    expect(readme).toContain("https://github.com/msy-0098/codemax-tui/releases")
+    expect(readme).not.toContain("opencode.ai/install")
+    expect(readme).not.toContain("opencode-desktop")
+  })
 })
