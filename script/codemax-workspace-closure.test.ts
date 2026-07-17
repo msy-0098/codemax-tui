@@ -107,4 +107,13 @@ describe("CodeMax workspace closure", () => {
     expect(readme).not.toContain("opencode.ai/install")
     expect(readme).not.toContain("opencode-desktop")
   })
+
+  test("documents the public GitHub and Gitee Windows release", async () => {
+    const releaseGuide = await Bun.file(path.join(root, "docs/release/codemax-windows.md")).text()
+
+    expect(releaseGuide).toContain("# CodeMax Windows public release")
+    expect(releaseGuide).toContain("GitHub")
+    expect(releaseGuide).toContain("Gitee")
+    expect(releaseGuide).not.toContain("private MVP")
+  })
 })
