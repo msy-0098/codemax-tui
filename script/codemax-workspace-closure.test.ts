@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { existsSync } from "fs"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -12,6 +13,7 @@ const manifests: WorkspaceManifest[] = [
   { name: "@opencode-ai/ui", path: "packages/ui/package.json", dependencies: [] },
   { name: "@opencode-ai/desktop", path: "packages/desktop/package.json", dependencies: ["@opencode-ai/core"] },
 ]
+const root = path.resolve(import.meta.dir, "..")
 
 describe("CodeMax workspace closure", () => {
   test("retains transitive dependencies without retaining reverse dependents", () => {
@@ -45,6 +47,52 @@ describe("CodeMax workspace closure", () => {
       ])
     } finally {
       await fs.rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test("keeps only CodeMax product surfaces", async () => {
+    const removed = [
+      "packages/app",
+      "packages/desktop",
+      "packages/console",
+      "packages/enterprise",
+      "packages/httpapi-codegen",
+      "packages/slack",
+      "packages/sdk-next",
+      "packages/stats",
+      "packages/storybook",
+      "packages/web",
+      "infra",
+      "nix",
+    ]
+
+    for (const target of removed) {
+      const result = Bun.spawnSync(["git", "ls-files", "--", target], { cwd: root, stdout: "pipe" })
+      expect(new TextDecoder().decode(result.stdout).trim()).toBe("")
+    }
+
+    expect(existsSync(path.join(root, "packages/opencode/package.json"))).toBe(true)
+    expect(existsSync(path.join(root, "packages/tui/package.json"))).toBe(true)
+    expect(existsSync(path.join(root, ".github/workflows/codemax-release.yml"))).toBe(true)
+
+    const manifest = await Bun.file(path.join(root, "package.json")).json()
+    expect(manifest.scripts["dev:desktop"]).toBeUndefined()
+    expect(manifest.scripts["dev:web"]).toBeUndefined()
+    expect(manifest.scripts["dev:console"]).toBeUndefined()
+    expect(manifest.scripts["dev:stats"]).toBeUndefined()
+    expect(manifest.scripts["dev:storybook"]).toBeUndefined()
+    expect(manifest.workspaces.packages).toEqual(["packages/*", "packages/sdk/js"])
+    expect(manifest.repository.url).toBe("https://github.com/msy-0098/codemax-tui.git")
+
+    for (const target of [
+      ".github/CODEOWNERS",
+      "script/publish.ts",
+      "script/raw-changelog.ts",
+      "script/translate-app.ts",
+      "script/translate-app.test.ts",
+    ]) {
+      const result = Bun.spawnSync(["git", "ls-files", "--", target], { cwd: root, stdout: "pipe" })
+      expect(new TextDecoder().decode(result.stdout).trim()).toBe("")
     }
   })
 })
