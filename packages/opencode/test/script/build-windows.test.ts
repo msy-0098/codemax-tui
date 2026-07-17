@@ -9,3 +9,10 @@ test("Windows release builds only the native and baseline CodeMax x64 targets", 
   expect(source).toContain('icon: "./assets/codemax/codemax.ico"')
   expect(source).toContain('title: Product.Name')
 })
+
+test("CLI and TUI builds do not require the removed web application", async () => {
+  const source = await Bun.file("script/build.ts").text()
+
+  expect(source).not.toContain('path.join(import.meta.dirname, "../../app")')
+  expect(source).toContain("const embeddedFileMap = null")
+})
